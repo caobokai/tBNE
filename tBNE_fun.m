@@ -28,107 +28,107 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
 % Zaiwen Wen and Wotao Yin
 % http://www.math.ucla.edu/~wotaoyin/papers/feasible_method_matrix_manifold.html
 
-%% set algorithm parameters
-printitn = 1;
-maxiter = 200;
-fitchangetol = 1e-4;
+    %% set algorithm parameters
+    printitn = 1;
+    maxiter = 200;
+    fitchangetol = 1e-4;
 
-alpha = 0.1; % weight for guidance
-beta = 0.1; % weight for classification loss
-gamma = 0.1; % weight for regularization
+    alpha = 0.1; % weight for guidance
+    beta = 0.1; % weight for classification loss
+    gamma = 0.1; % weight for regularization
 
-u = 1e-6;
-umax = 1e6;
-rho = 1.15;
+    u = 1e-6;
+    umax = 1e6;
+    rho = 1.15;
 
-opts.record = 0;
-opts.mxitr  = 20;
-opts.xtol = 1e-5;
-opts.gtol = 1e-5;
-opts.ftol = 1e-8;
+    opts.record = 0;
+    opts.mxitr  = 20;
+    opts.xtol = 1e-5;
+    opts.gtol = 1e-5;
+    opts.ftol = 1e-8;
 
-%% compute statistics
-dim = size(X);
-normX = norm(X);
-numClass = size(Y, 2);
-m = dim(1);
-n = dim(3);
-l = size(Y, 1);
-D = [eye(l), zeros(l,n-l)];
-L = diag(sum(Z*Z'))-Z*Z';
+    %% compute statistics
+    dim = size(X);
+    normX = norm(X);
+    numClass = size(Y, 2);
+    m = dim(1);
+    n = dim(3);
+    l = size(Y, 1);
+    D = [eye(l), zeros(l,n-l)];
+    L = diag(sum(Z*Z'))-Z*Z';
 
-%% initialization
-B = randn(m,k);
-P = B;
-S = randn(n,k);
-S = orth(S);
-W = randn(k,numClass);
-U = zeros(m,k); % Lagrange multipliers
+    %% initialization
+    B = randn(m,k);
+    P = B;
+    S = randn(n,k);
+    S = orth(S);
+    W = randn(k,numClass);
+    U = zeros(m,k); % Lagrange multipliers
 
-%% main loop
-fit = 0;
-for iter = 1: maxiter
-    fitold = fit;
-    % update B
-    ete = (S' * S) .* (P' * P); % compute E'E
-    b = 2 * ete + u * eye(k);
-    c = 2 * mttkrp(X,{B,P,S},1) + u * P + U;
-    B = c / b;
+    %% main loop
+    fit = 0;
+    for iter = 1: maxiter
+        fitold = fit;
+        % update B
+        ete = (S' * S) .* (P' * P); % compute E'E
+        b = 2 * ete + u * eye(k);
+        c = 2 * mttkrp(X,{B,P,S},1) + u * P + U;
+        B = c / b;
 
-    % update P
-    ftf = (S' * S) .* (B' * B); % compute F'F
-    b = 2 * ftf + u * eye(k);
-    c = 2 * mttkrp(X,{B,P,S},2) + u * B - U;
-    P = c / b;
+        % update P
+        ftf = (S' * S) .* (B' * B); % compute F'F
+        b = 2 * ftf + u * eye(k);
+        c = 2 * mttkrp(X,{B,P,S},2) + u * B - U;
+        P = c / b;
 
-    % update U
-    U = U + u * (P - B);
-    
-    % update u
-    u = min(rho * u, umax);
-    
-    % update S
-    tic;
-    [S, out] = OptStiefelGBB(S, @Sfun, opts, B, P, X, L, D, W, Y, alpha, beta);
-    tsolve = toc;
-    fprintf('[S]: obj val %7.6e, cpu %f, #func eval %d, itr %d, |ST*S-I| %3.2e\n', ...
-             out.fval, tsolve, out.nfe, out.itr, norm(S'*S - eye(k), 'fro'));
-    
-    % update W
-    H = D * S;
-    W = (H' * H + gamma * eye(k)) \ H' * Y;
-    
-    % compute the fit
-    T = ktensor({B,P,S});
-    normresidual = sqrt(normX^2 + norm(T)^2 - 2 * innerprod(X,T));
-    fit = 1 - (normresidual / normX);
-    fitchange = abs(fitold - fit);
-    
-    if mod(iter,printitn)==0
-        fprintf(' Iter %2d: fitdelta = %7.1e\n', iter, fitchange);
+        % update U
+        U = U + u * (P - B);
+
+        % update u
+        u = min(rho * u, umax);
+
+        % update S
+        tic;
+        [S, out] = OptStiefelGBB(...
+            S, @Sfun, opts, B, P, X, L, D, W, Y, alpha, beta);
+        tsolve = toc;
+        fprintf(...
+            '[S]: obj val %7.6e, cpu %f, #func eval %d, ', ...
+            'itr %d, |ST*S-I| %3.2e\n', ...
+            out.fval, tsolve, out.nfe, out.itr, norm(S'*S - eye(k), 'fro'));
+
+        % update W
+        H = D * S;
+        W = (H' * H + gamma * eye(k)) \ H' * Y;
+
+        % compute the fit
+        T = ktensor({B,P,S});
+        normresidual = sqrt(normX^2 + norm(T)^2 - 2 * innerprod(X,T));
+        fit = 1 - (normresidual / normX);
+        fitchange = abs(fitold - fit);
+
+        if mod(iter,printitn)==0
+            fprintf(' Iter %2d: fitdelta = %7.1e\n', iter, fitchange);
+        end
+
+        % check for convergence
+        if (iter > 1) && (fitchange < fitchangetol)
+            break;
+        end
     end
-    
-    % check for convergence
-    if (iter > 1) && (fitchange < fitchangetol)
-        break;
-    end
-end
 
-%% clean up final results
-T = arrange(T); % columns are normalized
+    %% clean up final results
+    T = arrange(T); % columns are normalized
 
-fprintf('factorization error %3.2e\n', fit);
-
+    fprintf('factorization error %3.2e\n', fit);
 end
 
 function [F, G] = Sfun(S, B, P, X, L, D, W, Y, alpha, beta)
+    gtg = (P' * P) .* (B' * B); % compute G'G
 
-gtg = (P' * P) .* (B' * B); % compute G'G
+    G = S * gtg - mttkrp(X,{B,P,S},3) ...
+        + alpha * L * S + beta * D' * (D * S * W - Y) * W';
 
-G = S * gtg - mttkrp(X,{B,P,S},3) ...
-    + alpha * L * S + beta * D' * (D * S * W - Y) * W';
-
-F = norm(S * khatrirao(B,P)' - reshape(X.data,size(X,3),[]), 'fro')^2 ...
-    + alpha * trace(S' * L * S) + beta * norm(D * S * W - Y, 'fro')^2;
-
+    F = norm(S * khatrirao(B,P)' - reshape(X.data,size(X,3),[]), 'fro')^2 ...
+        + alpha * trace(S' * L * S) + beta * norm(D * S * W - Y, 'fro')^2;
 end
