@@ -29,7 +29,7 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
 % http://www.math.ucla.edu/~wotaoyin/papers/feasible_method_matrix_manifold.html
 
     %% set algorithm parameters
-    printitn = 1;
+    printitn = 10;
     maxiter = 200;
     fitchangetol = 1e-4;
 
@@ -42,7 +42,7 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
     rho = 1.15;
 
     opts.record = 0;
-    opts.mxitr  = 20;
+    opts.mxitr = 20;
     opts.xtol = 1e-5;
     opts.gtol = 1e-5;
     opts.ftol = 1e-8;
@@ -54,31 +54,31 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
     m = dim(1);
     n = dim(3);
     l = size(Y, 1);
-    D = [eye(l), zeros(l,n-l)];
-    L = diag(sum(Z*Z'))-Z*Z';
+    D = [eye(l), zeros(l, n - l)];
+    L = diag(sum(Z * Z')) - Z * Z';
 
     %% initialization
-    B = randn(m,k);
+    B = randn(m, k);
     P = B;
-    S = randn(n,k);
+    S = randn(n, k);
     S = orth(S);
-    W = randn(k,numClass);
-    U = zeros(m,k); % Lagrange multipliers
+    W = randn(k, numClass);
+    U = zeros(m, k); % Lagrange multipliers
 
     %% main loop
     fit = 0;
-    for iter = 1: maxiter
+    for iter = 1 : maxiter
         fitold = fit;
         % update B
         ete = (S' * S) .* (P' * P); % compute E'E
         b = 2 * ete + u * eye(k);
-        c = 2 * mttkrp(X,{B,P,S},1) + u * P + U;
+        c = 2 * mttkrp(X, {B, P, S}, 1) + u * P + U;
         B = c / b;
 
         % update P
         ftf = (S' * S) .* (B' * B); % compute F'F
         b = 2 * ftf + u * eye(k);
-        c = 2 * mttkrp(X,{B,P,S},2) + u * B - U;
+        c = 2 * mttkrp(X, {B, P, S}, 2) + u * B - U;
         P = c / b;
 
         % update U
@@ -93,21 +93,21 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
             S, @Sfun, opts, B, P, X, L, D, W, Y, alpha, beta);
         tsolve = toc;
         fprintf(...
-            '[S]: obj val %7.6e, cpu %f, #func eval %d, ', ...
-            'itr %d, |ST*S-I| %3.2e\n', ...
-            out.fval, tsolve, out.nfe, out.itr, norm(S'*S - eye(k), 'fro'));
+            ['[S]: obj val %7.6e, cpu %f, #func eval %d, ', ...
+            'itr %d, |ST*S-I| %3.2e\n'], ...
+            out.fval, tsolve, out.nfe, out.itr, norm(S' * S - eye(k), 'fro'));
 
         % update W
         H = D * S;
         W = (H' * H + gamma * eye(k)) \ H' * Y;
 
         % compute the fit
-        T = ktensor({B,P,S});
-        normresidual = sqrt(normX^2 + norm(T)^2 - 2 * innerprod(X,T));
+        T = ktensor({B, P, S});
+        normresidual = sqrt(normX ^ 2 + norm(T) ^ 2 - 2 * innerprod(X, T));
         fit = 1 - (normresidual / normX);
         fitchange = abs(fitold - fit);
 
-        if mod(iter,printitn)==0
+        if mod(iter, printitn) == 0
             fprintf(' Iter %2d: fitdelta = %7.1e\n', iter, fitchange);
         end
 
@@ -126,9 +126,11 @@ end
 function [F, G] = Sfun(S, B, P, X, L, D, W, Y, alpha, beta)
     gtg = (P' * P) .* (B' * B); % compute G'G
 
-    G = S * gtg - mttkrp(X,{B,P,S},3) ...
+    G = S * gtg - mttkrp(X, {B, P, S}, 3) ...
         + alpha * L * S + beta * D' * (D * S * W - Y) * W';
 
-    F = norm(S * khatrirao(B,P)' - reshape(X.data,size(X,3),[]), 'fro')^2 ...
-        + alpha * trace(S' * L * S) + beta * norm(D * S * W - Y, 'fro')^2;
+    F = norm(S * khatrirao(B, P)' - ...
+        reshape(X.data, size(X, 3), []), 'fro') ^ 2 + ...
+        alpha * trace(S' * L * S) + ...
+        beta * norm(D * S * W - Y, 'fro') ^ 2;
 end

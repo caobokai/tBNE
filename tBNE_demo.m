@@ -14,4 +14,4 @@ k = 10; % rank for tensor
 
 [~, y1] = max(Y, [], 2);
 [~, y2] = max(T{3} * W, [], 2);
-fprintf('accuracy %3.2e\n', sum(y1==y2)/n);
+fprintf('accuracy %3.2e\n', sum(y1 == y2) / n);
