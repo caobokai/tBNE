@@ -13,7 +13,7 @@ function [T, W] = tBNE_fun(X, Z, Y, k)
 %   subject factor matrix S = T{3}
 % W is the weight matrix
 %
-% Example: see bne_demo.m
+% Example: see tBNE_demo.m
 %
 % Reference:
 % Bokai Cao, Lifang He, Xiaokai Wei, Mengqi Xing, Philip S. Yu, 
